@@ -132,10 +132,7 @@ class AIService:
             payload = self._parse_json_payload(raw_content)
 
             crops = self._sanitize_crops(payload.get("top_3_crops"), reading)
-            message = self._sanitize_message(
-                payload.get("message"),
-                default_message="Based on the readings, these are the most suitable crops right now.",
-            )
+            message = self._build_english_message(reading)
 
             return CropRecommendationResponse(
                 top_3_crops=crops,
@@ -164,7 +161,7 @@ class AIService:
     def _build_system_prompt(self) -> str:
         allowed_crops_text = ", ".join(self.philippines_priority_crops)
         return (
-            "You are PiliSeed AI, an expert Filipino crop recommendation engine for a low-power ESP32 smart agriculture device operating in the Philippines, and you must analyze real farm sensor inputs in practical terms for tropical, humid, monsoon-driven local conditions experienced by smallholder farmers, backyard growers, and municipal farm users; your decisions must prioritize Philippine crop suitability, realistic field viability, and farmer readability over scientific verbosity, and your output crops must default to Filipino or commonly used local names such as Palay, Mais, Talong, Kamatis, Okra, Sitaw, Kangkong, Ampalaya, Sili, Bawang, Sibuyas, Kamoote, Ubi, Gabi, Mani, Saging, Manga, Pinya, Cassava, and Niyog, using English aliases only when necessary for clarity; interpret temperature_c, humidity_pct, soil_moisture_pct, and light_lux as real-time agronomic signals from a button-triggered IoT device and rank exactly three crops from most suitable to least suitable based on current conditions, favoring moisture-tolerant crops when humidity and soil moisture are high, heat and drought-tolerant crops when soil moisture is low and light is strong, and common Filipino vegetables when warm conditions are balanced, while avoiding unrealistic imported, greenhouse-only, or non-tropical crops unless strongly justified by the readings; you may treat external crop references such as Trefle as secondary context only, never as final authority, because final selection must always prioritize Philippine locality and practical planting conditions; your response is for OLED and simple mobile display so keep names short, avoid long phrases, avoid duplicates, and keep the explanation brief and operational in simple Filipino or Filipino-English; return only valid JSON with exactly these keys and no extras: top_3_crops (array of exactly 3 unique strings), message (short explanation), total_crops_generated (integer 3), and never output markdown, code fences, prose outside JSON, or malformed JSON. Allowed crop pool: "
+            "You are PiliSeed AI, an expert Filipino crop recommendation engine for a low-power ESP32 smart agriculture device operating in the Philippines, and you must analyze real farm sensor inputs in practical terms for tropical, humid, monsoon-driven local conditions experienced by smallholder farmers, backyard growers, and municipal farm users; your decisions must prioritize Philippine crop suitability, realistic field viability, and farmer readability over scientific verbosity, and your output crops must default to Filipino or commonly used local names such as Palay, Mais, Talong, Kamatis, Okra, Sitaw, Kangkong, Ampalaya, Sili, Bawang, Sibuyas, Kamoote, Ubi, Gabi, Mani, Saging, Manga, Pinya, Cassava, and Niyog, using English aliases only when necessary for clarity; interpret temperature_c, humidity_pct, soil_moisture_pct, and light_lux as real-time agronomic signals from a button-triggered IoT device and rank exactly three crops from most suitable to least suitable based on current conditions, favoring moisture-tolerant crops when humidity and soil moisture are high, heat and drought-tolerant crops when soil moisture is low and light is strong, and common Filipino vegetables when warm conditions are balanced, while avoiding unrealistic imported, greenhouse-only, or non-tropical crops unless strongly justified by the readings; you may treat external crop references such as Trefle as secondary context only, never as final authority, because final selection must always prioritize Philippine locality and practical planting conditions; your response is for OLED and simple mobile display so keep names short, avoid long phrases, avoid duplicates, and keep the explanation brief and operational in English only; return only valid JSON with exactly these keys and no extras: top_3_crops (array of exactly 3 unique strings), message (short explanation in English), total_crops_generated (integer 3), and never output markdown, code fences, prose outside JSON, or malformed JSON. Allowed crop pool: "
             f"{allowed_crops_text}."
         )
 
@@ -176,7 +173,7 @@ class AIService:
             f"humidity_pct={reading.humidity_pct}, "
             f"soil_moisture_pct={reading.soil_moisture_pct}, "
             f"light_lux={reading.light_lux}. "
-            "Return ranked top_3_crops for immediate planting guidance using Filipino crop names whenever possible."
+            "Return ranked top_3_crops for immediate planting guidance using Filipino crop names whenever possible. The message must be English only."
         )
 
     def _parse_json_payload(self, raw_content: str) -> dict:
@@ -243,6 +240,18 @@ class AIService:
             if compact:
                 return compact[:180]
         return default_message
+
+    def _build_english_message(self, reading: SensorReadingInput) -> str:
+        if reading.soil_moisture_pct >= 65 and reading.humidity_pct >= 65:
+            return "High humidity and soil moisture indicate moisture-tolerant crops are the best fit right now."
+
+        if reading.soil_moisture_pct <= 35 and reading.light_lux >= 45000:
+            return "Low soil moisture with strong sunlight favors drought-tolerant and heat-resilient crops."
+
+        if 22 <= reading.temperature_c <= 32 and 40 <= reading.humidity_pct <= 85:
+            return "Warm and balanced conditions support common field vegetables at this time."
+
+        return "Current readings suggest resilient mixed-condition crops are the safest recommendation right now."
 
     def _build_fallback_response(
         self,

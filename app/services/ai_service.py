@@ -111,7 +111,7 @@ class AIService:
         if self._client is None:
             return self._build_fallback_response(
                 reading=reading,
-                reason="Walang AI key, kaya emergency fallback ang ginamit.",
+                reason="No AI key configured, using emergency fallback.",
             )
 
         system_prompt = self._build_system_prompt()
@@ -134,7 +134,7 @@ class AIService:
             crops = self._sanitize_crops(payload.get("top_3_crops"), reading)
             message = self._sanitize_message(
                 payload.get("message"),
-                default_message="Batay sa reading, ito ang pinaka-angkop na pananim ngayon.",
+                default_message="Based on the readings, these are the most suitable crops right now.",
             )
 
             return CropRecommendationResponse(
@@ -146,19 +146,19 @@ class AIService:
             logger.warning("OpenAI request timed out.")
             return self._build_fallback_response(
                 reading=reading,
-                reason="Mabagal ang AI response, kaya emergency fallback muna.",
+                reason="AI response timed out, using emergency fallback.",
             )
         except (OpenAIError, JSONDecodeError, KeyError, TypeError, ValueError):
             logger.exception("OpenAI recommendation generation failed.")
             return self._build_fallback_response(
                 reading=reading,
-                reason="Nagkaproblema sa AI output, kaya emergency fallback muna.",
+                reason="There was a problem with the AI output, using emergency fallback.",
             )
         except Exception:
             logger.exception("Unexpected recommendation error.")
             return self._build_fallback_response(
                 reading=reading,
-                reason="May hindi inaasahang error, kaya emergency fallback muna.",
+                reason="An unexpected error occurred, using emergency fallback.",
             )
 
     def _build_system_prompt(self) -> str:
